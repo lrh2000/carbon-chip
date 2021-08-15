@@ -6,7 +6,7 @@ import pkucs.carbonchip.instr.DecodedInstr
 import pkucs.carbonchip.ooo.MapTable
 import pkucs.carbonchip.ooo.ReadyTable
 
-class DecodeUnit(implicit c : ChipConfig) extends Module {
+class DecodeUnit(implicit c: ChipConfig) extends Module {
   val io = IO(new Bundle {
     val fetchAddrIn = Input(UInt(c.NumFetchAddrBits.W))
     val fetchAddrOut = Output(UInt(c.NumFetchAddrBits.W))
@@ -51,8 +51,10 @@ class DecodeUnit(implicit c : ChipConfig) extends Module {
   io.decodeInstrs := instrs
   for (i <- 0 until c.NumFetchInstrs) {
     for (j <- 0 until c.NumReadRegsPerInstr) {
-      readyTable.io.phyRegRead(i * c.NumReadRegsPerInstr + j) := instrs(i).inRegAddr(j)
-      io.decodeInstrs(i).readyFlags(j) := readyTable.io.phyRegFlag(i * c.NumReadRegsPerInstr + j)
+      readyTable.io.phyRegRead(i * c.NumReadRegsPerInstr + j) :=
+        instrs(i).inRegAddr(j)
+      io.decodeInstrs(i).readyFlags(j) :=
+        readyTable.io.phyRegFlag(i * c.NumReadRegsPerInstr + j)
     }
   }
 

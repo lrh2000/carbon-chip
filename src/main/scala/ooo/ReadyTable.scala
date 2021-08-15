@@ -3,7 +3,7 @@ package pkucs.carbonchip.ooo
 import chisel3._
 import pkucs.carbonchip.config.ChipConfig
 
-class ReadyTable(implicit c : ChipConfig) extends Module {
+class ReadyTable(implicit c: ChipConfig) extends Module {
   val io = IO(new Bundle {
     val phyRegRead = Input(Vec(c.NumReadIsaRegs, UInt(c.BitNumPhyRegs.W)))
     val phyRegFlag = Output(Vec(c.NumReadIsaRegs, Bool()))

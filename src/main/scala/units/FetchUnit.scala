@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util.experimental.loadMemoryFromFile
 import pkucs.carbonchip.config.ChipConfig
 
-class FetchUnit(implicit c : ChipConfig) extends Module {
+class FetchUnit(implicit c: ChipConfig) extends Module {
   val io = IO(new Bundle {
     val fetchAddrIn = Input(UInt(c.NumFetchAddrBits.W))
     val fetchAddrOut = Output(UInt(c.NumFetchAddrBits.W))
@@ -25,6 +25,9 @@ class FetchUnit(implicit c : ChipConfig) extends Module {
   io.fetchValid := valid
 
   for (i <- 0 until c.NumFetchInstrs) {
-    io.fetchInstrs(i) := instrs(c.NumInstrBits * (i + 1) - 1, c.NumInstrBits * i)
+    io.fetchInstrs(i) := instrs(
+      c.NumInstrBits * (i + 1) - 1,
+      c.NumInstrBits * i
+    )
   }
 }

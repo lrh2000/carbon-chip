@@ -8,7 +8,7 @@ import pkucs.carbonchip.ooo.ReorderBuffer
 import pkucs.carbonchip.units.RegisterUnit
 import pkucs.carbonchip.units.ArithmeticLogicUnit
 
-class CarbonChip(implicit c : ChipConfig) extends Module {
+class CarbonChip(implicit c: ChipConfig) extends Module {
   val io = IO(new Bundle {
     val halt = Output(Bool())
     val unused = Output(Vec(c.NumWritePhyRegs, UInt(c.BitNumRegData.W)))

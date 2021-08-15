@@ -5,7 +5,7 @@ import pkucs.carbonchip.config.ChipConfig
 import pkucs.carbonchip.instr.DecodedInstr
 import pkucs.carbonchip.instr.IssuedInstr
 
-class ReorderBuffer(implicit c : ChipConfig) extends Module {
+class ReorderBuffer(implicit c: ChipConfig) extends Module {
   val io = IO(new Bundle {
     val decodeReady = Output(Vec(c.NumDecodeInstrs, Bool()))
     val decodeValid = Input(Vec(c.NumDecodeInstrs, Bool()))
@@ -30,7 +30,9 @@ class ReorderBuffer(implicit c : ChipConfig) extends Module {
   for (i <- 0 until c.NumReorderInstrs) {
     for (j <- 0 until c.NumReadRegsPerInstr) {
       for (k <- 0 until c.NumReadyRegs) {
-        when(io.regReadyValid(k) && io.regReadyAddr(k) === buffer(i).inRegAddr(j)) {
+        when(
+          io.regReadyValid(k) && io.regReadyAddr(k) === buffer(i).inRegAddr(j)
+        ) {
           buffer(i).readyFlags(j) := true.B
         }
       }
@@ -96,16 +98,21 @@ class ReorderBuffer(implicit c : ChipConfig) extends Module {
   require(c.NumWriteRegsPerInstr == 1)
 
   val issueIndex0 = Wire(Vec(c.BitNumReorderInstrs, Bool()))
-  val issueIndex0Helpers = (0 to c.BitNumReorderInstrs).map(x => Wire(Vec(1 << x, Bool())))
+  val issueIndex0Helpers =
+    (0 to c.BitNumReorderInstrs).map(x => Wire(Vec(1 << x, Bool())))
   issueIndex0Helpers(c.BitNumReorderInstrs) := canIssue
 
   for (i <- 0 until c.BitNumReorderInstrs) {
     when(issueIndex0Helpers(i + 1).asUInt()((1 << i) - 1, 0).orR()) {
       issueIndex0(i) := false.B
-      issueIndex0Helpers(i) := issueIndex0Helpers(i + 1).asUInt()((1 << i) - 1, 0).asBools()
+      issueIndex0Helpers(i) := issueIndex0Helpers(i + 1)
+        .asUInt()((1 << i) - 1, 0)
+        .asBools()
     }.otherwise {
       issueIndex0(i) := true.B
-      issueIndex0Helpers(i) := issueIndex0Helpers(i + 1).asUInt()((1 << (i + 1)) - 1, 1 << i).asBools()
+      issueIndex0Helpers(i) := issueIndex0Helpers(i + 1)
+        .asUInt()((1 << (i + 1)) - 1, 1 << i)
+        .asBools()
     }
   }
 
@@ -116,16 +123,21 @@ class ReorderBuffer(implicit c : ChipConfig) extends Module {
   io.regReadyAddr(0) := issueInstr0.outRegAddr(0)
 
   val issueIndex1 = Wire(Vec(c.BitNumReorderInstrs, Bool()))
-  val issueIndex1Helpers = (0 to c.BitNumReorderInstrs).map(x => Wire(Vec(1 << x, Bool())))
+  val issueIndex1Helpers =
+    (0 to c.BitNumReorderInstrs).map(x => Wire(Vec(1 << x, Bool())))
   issueIndex1Helpers(c.BitNumReorderInstrs) := canIssue
 
   for (i <- 0 until c.BitNumReorderInstrs) {
     when(issueIndex1Helpers(i + 1).asUInt()((1 << (i + 1)) - 1, 1 << i).orR()) {
       issueIndex1(i) := true.B
-      issueIndex1Helpers(i) := issueIndex1Helpers(i + 1).asUInt()((1 << (i + 1)) - 1, 1 << i).asBools()
+      issueIndex1Helpers(i) := issueIndex1Helpers(i + 1)
+        .asUInt()((1 << (i + 1)) - 1, 1 << i)
+        .asBools()
     }.otherwise {
       issueIndex1(i) := false.B
-      issueIndex1Helpers(i) := issueIndex1Helpers(i + 1).asUInt()((1 << i) - 1, 0).asBools()
+      issueIndex1Helpers(i) := issueIndex1Helpers(i + 1)
+        .asUInt()((1 << i) - 1, 0)
+        .asBools()
     }
   }
 
