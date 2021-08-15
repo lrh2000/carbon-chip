@@ -1,8 +1,5 @@
+/out/
 /test_run_dir/
 /.bsp/
-
-/*.v
-/*.anno.json
-/*.fir
 
 target/

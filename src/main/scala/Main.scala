@@ -1,10 +1,12 @@
 package pkucs.carbonchip
 
 import chisel3.stage._
+import pkucs.carbonchip.config.ChipConfig
 
-object CarbonChip {
+object Main {
   def main(args: Array[String]): Unit = {
+    implicit val c = new ChipConfig
     println((new ChiselStage)
-      .emitVerilog(new basic.RegisterFile(32, 5)))
+      .execute(args, Seq(new ChiselGeneratorAnnotation(() => new CarbonChip()))))
   }
 }
