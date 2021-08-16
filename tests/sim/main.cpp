@@ -41,11 +41,21 @@ static void dump_registers()
   }
 }
 
+static vluint64_t main_time = 0;
+
+// Note:
+// This is considered a legacy issue before Verilator 4.200 2021-03-12.
+// If it is possible, replace it with VerilatedContext::time() and
+// VerilatedContext::timeInc().
+double sc_time_stamp(void)
+{
+  return main_time;
+}
+
 int main(int argc, char **argv)
 {
   Verilated::commandArgs(argc, argv);
-  VerilatedContext *contextp = new VerilatedContext;
-  VCarbonChip *chip = new VCarbonChip(contextp);
+  VCarbonChip *chip = new VCarbonChip;
   VerilatedVcdC *tfp = new VerilatedVcdC;
 
   Verilated::traceEverOn(true);
@@ -55,19 +65,19 @@ int main(int argc, char **argv)
   int halt_time = 0;
   chip->reset = 1;
   do {
-    if ((contextp->time() & 15) == 0)
+    if ((main_time & 15) == 0)
       chip->clock = 0;
-    if ((contextp->time() & 15) == 8)
+    if ((main_time & 15) == 8)
       chip->clock = 1;
-    if (contextp->time() == 32)
+    if (main_time == 32)
       chip->reset = 0;
 
     if (chip->io_halt)
       halt_time += 1;
 
-    contextp->timeInc(1);
+    ++main_time;
     chip->eval();
-    tfp->dump(contextp->time());
+    tfp->dump(main_time);
   } while (halt_time <= 25 * 32);
   // Wait 25 more cycles to make sure that all
   // oustanding instrutions have retired (FIXME).

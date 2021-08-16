@@ -1,47 +1,98 @@
-#include "signal.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
+#include "defs.h"
 
-static uint8_t signal_stack[SIGSTKSZ];
+extern char stack[], stack_top[];
 
-static void handle_sigill(int sig, void *info, struct target_ucontext *uc)
+extern void foo(void);
+
+static void dump_register(int addr, uint32_t data)
 {
-  asm volatile (
-      ".option push\n\t"
-      ".option norelax\n\t"
-      "la gp, __global_pointer$\n\t"
-      ".option pop\n\t"
-  );
+  static char str[] = "x0  00000000\n";
 
-  puts("x0  00000000");
+  if (addr <= 9) {
+    str[1] = addr + '0';
+    str[2] = ' ';
+  } else {
+    str[1] = addr / 10 + '0';
+    str[2] = addr % 10 + '0';
+  }
+
+  for (int i = 0; i < 8; ++i)
+  {
+    int num = (data >> (i * 4)) & 0xF;
+    char c;
+    if (num <= 9)
+      c = '0' + num;
+    else
+      c = 'a' + (num - 10);
+    str[11 - i] = c;
+  }
+
+  if (do_write(STDOUT_FILENO, str, sizeof(str) - 1) != sizeof(str) - 1)
+    do_exit(-3);
+}
+
+// The `target_ucontext` structures can be different in different versions of QEMU,
+// for example they are different in QEMU 4.2.1 and QEMU 6.0.0, which will lead to
+// different offsets of their member `uc_mcontext` (that contains register contents
+// we are interested in).
+// So we have to dynamically search the `uc_mcontext` field, instead of using a fixed
+// value as the offset.
+static int search_mcontext(void *uc)
+{
+  uint32_t *start = (uint32_t *)uc;
+  uint32_t *now = start;
+
+  for (;;)
+  {
+    for (int i = 1; i < 32; ++i)
+      if (now[i] != i)
+        goto next;
+    break;
+next:
+    ++now;
+  }
+
+  return now - start;
+}
+
+static void handle_sigill(int sig, void *info, void *uc)
+{
+  static int mc_offset = 0;
+
+  uint32_t *mc; // [pc, x1, ..., x31] = mc[0, 1, ..., 31]
+
+  if (!mc_offset) {
+    mc_offset = search_mcontext(uc);
+    mc = (uint32_t *)uc + mc_offset;
+    mc[0] = (uint32_t)&foo;
+    return;
+  }
+  mc = (uint32_t *)uc + mc_offset;
+
+  dump_register(0, 0);
   for (int i = 1; i < 32; ++i)
-    printf("x%d%s%08lx\n", i, i <= 9 ? "  " : " ", uc->uc_mcontext.gpr[i - 1]);
-  exit(0);
+    dump_register(i, mc[i]);
+
+  do_exit(0);
 }
 
 int main(void)
 {
   struct target_sigaltstack ss;
   memset(&ss, 0, sizeof(ss));
-  ss.ss_sp = (long)signal_stack;
-  ss.ss_size = SIGSTKSZ;
+  ss.ss_sp = (long)stack;
+  ss.ss_size = stack_top - stack;
 
-  if (do_sigaltstack(&ss, NULL) < 0) {
-    fprintf(stderr, "do_sigaltstack failed\n");
-    return -1;
-  }
+  if (do_sigaltstack(&ss, NULL) < 0)
+    do_exit(-1);
 
   struct target_sigaction act;
   memset(&act, 0, sizeof(act));
   act.sa_flags = TARGET_SA_SIGINFO | TARGET_SA_ONSTACK;
   act._sa_handler = (long)&handle_sigill;
 
-  if (do_sigaction(SIGILL, &act, NULL) < 0) {
-    fprintf(stderr, "do_sigaction failed\n");
-    return -1;
-  }
+  if (do_sigaction(TARGET_SIGILL, &act, NULL) < 0)
+    do_exit(-2);
 
   asm volatile (
       "li x0, 0\n\t"
@@ -76,7 +127,7 @@ int main(void)
       "li x29, 29\n\t"
       "li x30, 30\n\t"
       "li x31, 31\n\t"
-      "j foo\n\t"
+      ".long 0\n\t"
   );
 
   __builtin_unreachable();
