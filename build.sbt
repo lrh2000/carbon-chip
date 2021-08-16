@@ -45,7 +45,9 @@ lazy val root = (project in file("."))
       "-Ywarn-unused:params",
       "-Ywarn-unused:patvars",
       "-Ywarn-unused:privates",
-      "-Ywarn-value-discard"
+      "-Ywarn-value-discard",
+
+      "-P:chiselplugin:useBundlePlugin"
     ),
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.4.3" cross CrossVersion.full)
   )
