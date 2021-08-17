@@ -8,7 +8,6 @@ class ReadyTable(implicit c: ChipConfig) extends Module {
     val phyRegRead = Input(Vec(c.NumReadIsaRegs, UInt(c.BitNumPhyRegs.W)))
     val phyRegFlag = Output(Vec(c.NumReadIsaRegs, Bool()))
 
-    val regWriteEna = Input(Vec(c.NumWriteIsaRegs, Bool()))
     val phyRegWrite = Input(Vec(c.NumWriteIsaRegs, UInt(c.BitNumPhyRegs.W)))
 
     val regReadyFlag = Input(Vec(c.NumReadyRegs, Bool()))
@@ -24,10 +23,11 @@ class ReadyTable(implicit c: ChipConfig) extends Module {
       flags(io.regReadyAddr(i)) := true.B
     }
   }
+
   for (i <- 0 until c.NumWriteIsaRegs) {
-    when(io.regWriteEna(i)) {
-      flags(io.phyRegWrite(i)) := false.B
-    }
+    // They're always `freeReg0` and `freeReg1` (see also MapTable.scala),
+    // so there's no need to add an enable signal (such as `regWriteEna`).
+    flags(io.phyRegWrite(i)) := false.B
   }
 
   for (i <- 0 until c.NumReadIsaRegs) {

@@ -8,6 +8,7 @@ class MapTable(implicit c: ChipConfig) extends Module {
     val isaRegRead = Input(Vec(c.NumReadIsaRegs, UInt(c.BitNumIsaRegs.W)))
     val phyRegRead = Output(Vec(c.NumReadIsaRegs, UInt(c.BitNumPhyRegs.W)))
 
+    val regWriteUpd = Input(Bool())
     val regWriteEna = Input(Vec(c.NumWriteIsaRegs, Bool()))
     val isaRegWrite = Input(Vec(c.NumWriteIsaRegs, UInt(c.BitNumIsaRegs.W)))
     val phyRegWrNew = Output(Vec(c.NumWriteIsaRegs, UInt(c.BitNumPhyRegs.W)))
@@ -90,24 +91,25 @@ class MapTable(implicit c: ChipConfig) extends Module {
   io.phyRegWrNew(0) := freeReg0.asUInt()
   io.phyRegWrNew(1) := freeReg1.asUInt()
 
-  when(io.regWriteEna(0)) {
+  when(io.regWriteUpd && io.regWriteEna(0)) {
     mapping(io.isaRegWrite(0)) := freeReg0.asUInt()
   }
-  when(io.regWriteEna(1)) {
+  when(io.regWriteUpd && io.regWriteEna(1)) {
     mapping(io.isaRegWrite(1)) := freeReg1.asUInt()
   }
 
   for (i <- 0 until c.NumPhyRegs) {
     when(
-      io.regWriteEna(0) && (if (i - 1 < 0) true.B
-                            else ~freeRegs.asUInt()(i - 1, 0).orR())
+      io.regWriteUpd && io.regWriteEna(0)
+        && (if (i - 1 < 0) true.B
+            else ~freeRegs.asUInt()(i - 1, 0).orR())
     ) {
       freeRegs(i) := false.B
     }
     when(
-      io.regWriteEna(1) && (if (c.NumPhyRegs - 1 < i + 1) true.B
-                            else
-                              ~freeRegs.asUInt()(c.NumPhyRegs - 1, i + 1).orR())
+      io.regWriteUpd && io.regWriteEna(1)
+        && (if (c.NumPhyRegs - 1 < i + 1) true.B
+            else ~freeRegs.asUInt()(c.NumPhyRegs - 1, i + 1).orR())
     ) {
       freeRegs(i) := false.B
     }

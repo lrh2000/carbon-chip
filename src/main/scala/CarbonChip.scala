@@ -34,25 +34,23 @@ class CarbonChip(implicit c: ChipConfig) extends Module {
 
   reorder.io.decodeValid := decode.io.decodeValid
   reorder.io.decodeInstrs := decode.io.decodeInstrs
+  reorder.io.decodeRegReady := decode.io.decodeRegReady
 
   regrw.io.inValid := reorder.io.issueValid
   regrw.io.inInstrs := reorder.io.issueInstrs
   require(c.NumWritePhyRegs == 2)
   regrw.io.regWriteValid(0) := alu0.io.outValid
   regrw.io.regWriteAddr(0) := alu0.io.outRegAddr
-  regrw.io.regWriteData(0) := alu0.io.result
+  regrw.io.regWriteData(0) := alu0.io.outRegData
   regrw.io.regWriteValid(1) := alu1.io.outValid
   regrw.io.regWriteAddr(1) := alu1.io.outRegAddr
-  regrw.io.regWriteData(1) := alu1.io.result
+  regrw.io.regWriteData(1) := alu1.io.outRegData
 
-  require(c.NumIssueInstrs == 2)
-  require(c.NumWriteRegsPerInstr == 1)
-  alu0.io.operands := regrw.io.outInstrs(0).inRegData
-  alu0.io.inRegAddr := regrw.io.outInstrs(0).outRegAddr(0)
-  alu0.io.inValid := regrw.io.outValid(0)
-  alu1.io.operands := regrw.io.outInstrs(1).inRegData
-  alu1.io.inRegAddr := regrw.io.outInstrs(1).outRegAddr(0)
-  alu1.io.inValid := regrw.io.outValid(1)
+  require(c.NumAluInstrs == 2)
+  alu0.io.instr := regrw.io.aluInstrs(0)
+  alu0.io.valid := regrw.io.aluValid(0)
+  alu1.io.instr := regrw.io.aluInstrs(1)
+  alu1.io.valid := regrw.io.aluValid(1)
 
   io.halt := decode.io.halt
   io.unused := regrw.io.regWriteData
