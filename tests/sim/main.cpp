@@ -30,7 +30,8 @@ static void dump_registers()
   const char *const mapping = "TOP.CarbonChip.decode.mapTable.mapping_";
   const char *const regdata = "TOP.CarbonChip.regrw.regFile.regdata_";
 
-  for (int i = 0; i < 32; ++i)
+  puts("x0  00000000");
+  for (int i = 1; i < 32; ++i)
   {
     std::string name;
     int index = VPI_READ_DATA(
