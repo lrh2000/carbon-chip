@@ -8,11 +8,15 @@ class MapTable(implicit c: ChipConfig) extends Module {
     val isaRegRead = Input(Vec(c.NumReadIsaRegs, UInt(c.BitNumIsaRegs.W)))
     val phyRegRead = Output(Vec(c.NumReadIsaRegs, UInt(c.BitNumPhyRegs.W)))
 
-    val regWriteUpd = Input(Bool())
+    // Since register x0 is hardwired with all bits equal to 0, do we
+    // still need to have a separate write enable signal?
     val regWriteEna = Input(Vec(c.NumWriteIsaRegs, Bool()))
     val isaRegWrite = Input(Vec(c.NumWriteIsaRegs, UInt(c.BitNumIsaRegs.W)))
     val phyRegWrNew = Output(Vec(c.NumWriteIsaRegs, UInt(c.BitNumPhyRegs.W)))
     val phyRegWrOld = Output(Vec(c.NumWriteIsaRegs, UInt(c.BitNumPhyRegs.W)))
+    val regWriteUpd = Input(Bool())
+
+    val phyRegFree = Output(Vec(c.NumWriteIsaRegs, UInt(c.BitNumPhyRegs.W)))
 
     val regCommitEna = Input(Vec(c.NumCommitRegs, Bool()))
     val phyRegCommit = Input(Vec(c.NumCommitRegs, UInt(c.BitNumPhyRegs.W)))
@@ -28,8 +32,20 @@ class MapTable(implicit c: ChipConfig) extends Module {
     )
   )
 
+  val mappingOut = Wire(Vec(c.NumIsaRegs, UInt(c.BitNumPhyRegs.W)))
+  for (i <- 0 until c.NumIsaRegs) {
+    mappingOut(i) := (if (i == c.IsaRegZeroAddr) c.PhyRegZeroAddr.U
+                      else mapping(i))
+  }
+
+  val freeRegsOut = Wire(Vec(c.NumPhyRegs, Bool()))
+  for (i <- 0 until c.NumPhyRegs) {
+    freeRegsOut(i) := (if (i == c.PhyRegZeroAddr) false.B
+                       else freeRegs(i))
+  }
+
   for (i <- 0 until c.NumReadIsaRegs) {
-    io.phyRegRead(i) := mapping(io.isaRegRead(i))
+    io.phyRegRead(i) := mappingOut(io.isaRegRead(i))
 
     for (j <- 0 until i / c.NumReadRegsPerInstr * c.NumWriteRegsPerInstr) {
       when(io.regWriteEna(j) && io.isaRegWrite(j) === io.isaRegRead(i)) {
@@ -39,7 +55,7 @@ class MapTable(implicit c: ChipConfig) extends Module {
   }
 
   for (i <- 0 until c.NumWriteIsaRegs) {
-    io.phyRegWrOld(i) := mapping(io.isaRegWrite(i))
+    io.phyRegWrOld(i) := mappingOut(io.isaRegWrite(i))
 
     for (j <- 0 until i / c.NumWriteRegsPerInstr * c.NumWriteRegsPerInstr) {
       when(io.regWriteEna(j) && io.isaRegWrite(j) === io.isaRegWrite(i)) {
@@ -51,7 +67,7 @@ class MapTable(implicit c: ChipConfig) extends Module {
   val freeReg0 = Wire(Vec(c.BitNumPhyRegs, Bool()))
   val freeReg0Helpers =
     (0 to c.BitNumPhyRegs).map(x => Wire(Vec(1 << x, Bool())))
-  freeReg0Helpers(c.BitNumPhyRegs) := freeRegs
+  freeReg0Helpers(c.BitNumPhyRegs) := freeRegsOut
 
   for (i <- 0 until c.BitNumPhyRegs) {
     when(freeReg0Helpers(i + 1).asUInt()((1 << i) - 1, 0).orR()) {
@@ -70,7 +86,7 @@ class MapTable(implicit c: ChipConfig) extends Module {
   val freeReg1 = Wire(Vec(c.BitNumPhyRegs, Bool()))
   val freeReg1Helpers =
     (0 to c.BitNumPhyRegs).map(x => Wire(Vec(1 << x, Bool())))
-  freeReg1Helpers(c.BitNumPhyRegs) := freeRegs
+  freeReg1Helpers(c.BitNumPhyRegs) := freeRegsOut
 
   for (i <- 0 until c.BitNumPhyRegs) {
     when(freeReg1Helpers(i + 1).asUInt()((1 << (i + 1)) - 1, 1 << i).orR()) {
@@ -88,8 +104,8 @@ class MapTable(implicit c: ChipConfig) extends Module {
 
   require(c.NumWriteIsaRegs == 2)
 
-  io.phyRegWrNew(0) := freeReg0.asUInt()
-  io.phyRegWrNew(1) := freeReg1.asUInt()
+  io.phyRegFree(0) := freeReg0.asUInt()
+  io.phyRegFree(1) := freeReg1.asUInt()
 
   when(io.regWriteUpd && io.regWriteEna(0)) {
     mapping(io.isaRegWrite(0)) := freeReg0.asUInt()
@@ -98,18 +114,28 @@ class MapTable(implicit c: ChipConfig) extends Module {
     mapping(io.isaRegWrite(1)) := freeReg1.asUInt()
   }
 
+  for (i <- 0 until c.NumWriteIsaRegs) {
+    when(io.isaRegWrite(i) === c.IsaRegZeroAddr.U) {
+      io.phyRegWrNew(i) := c.PhyRegZeroAddr.U
+    }.otherwise {
+      io.phyRegWrNew(i) := io.phyRegFree(i)
+    }
+  }
+
   for (i <- 0 until c.NumPhyRegs) {
     when(
       io.regWriteUpd && io.regWriteEna(0)
+        && io.isaRegWrite(0) =/= c.IsaRegZeroAddr.U
         && (if (i - 1 < 0) true.B
-            else ~freeRegs.asUInt()(i - 1, 0).orR())
+            else ~freeRegsOut.asUInt()(i - 1, 0).orR())
     ) {
       freeRegs(i) := false.B
     }
     when(
       io.regWriteUpd && io.regWriteEna(1)
+        && io.isaRegWrite(1) =/= c.IsaRegZeroAddr.U
         && (if (c.NumPhyRegs - 1 < i + 1) true.B
-            else ~freeRegs.asUInt()(c.NumPhyRegs - 1, i + 1).orR())
+            else ~freeRegsOut.asUInt()(c.NumPhyRegs - 1, i + 1).orR())
     ) {
       freeRegs(i) := false.B
     }

@@ -48,7 +48,10 @@ class RegisterUnit(implicit c: ChipConfig) extends Module {
     val out = Wire(SInt(c.BitNumRegData.W))
     out := in
     for (i <- 0 until c.NumWritePhyRegs) {
-      when(ena && io.regWriteValid(i) && io.regWriteAddr(i) === addr) {
+      when(
+        ena && addr =/= c.PhyRegZeroAddr.U
+          && io.regWriteValid(i) && io.regWriteAddr(i) === addr
+      ) {
         out := io.regWriteData(i).asSInt()
       }
     }

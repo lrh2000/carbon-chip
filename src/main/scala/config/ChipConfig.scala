@@ -7,6 +7,10 @@ class ChipConfig {
   val NumPhyRegs = 64
   val BitNumPhyRegs = 6
 
+  val IsaRegZeroAddr = 0
+  val PhyRegZeroAddr = 0
+  val RegZeroData = 0
+
   val NumReadIsaRegs = 4
   val NumReadRegsPerInstr = 2
 

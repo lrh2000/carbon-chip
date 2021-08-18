@@ -165,5 +165,5 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
   }
   mapTable.io.regWriteUpd := ready && io.fetchValid
 
-  readyTable.io.phyRegWrite := mapTable.io.phyRegWrNew
+  readyTable.io.phyRegFree := mapTable.io.phyRegFree
 }
