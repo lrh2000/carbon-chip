@@ -18,6 +18,6 @@ The executable will be placed at `out/sim/VCarbonChip`.
 
 To run all regression tests, use
 ```
-make tests
+make test
 ```
 The intermediate files will be placed inside `out/tests/`.

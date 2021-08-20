@@ -27,8 +27,8 @@ class ArithmeticLogicUnit(implicit c: ChipConfig) extends Module {
   val add = data1 + data2
   val sub = data1 - data2
   val sll = data1 << data2(c.NumAluShamtBits - 1, 0)
-  val slt = Mux(data1 <= data2, 1.S, 0.S)
-  val sltu = Mux(data1.asUInt() <= data2.asUInt(), 1.S, 0.S)
+  val slt = Mux(data1 < data2, 1.S, 0.S)
+  val sltu = Mux(data1.asUInt() < data2.asUInt(), 1.S, 0.S)
   val xor = data1 ^ data2
   val srl = data1.asUInt() >> data2(c.NumAluShamtBits - 1, 0)
   val sra = data1 >> data2(c.NumAluShamtBits - 1, 0)
