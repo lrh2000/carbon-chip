@@ -17,8 +17,8 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
     val valid = Output(Bool())
     val cooked = Output(Instruction())
+    val meta = Output(InstructionMeta())
 
-    val regReadEna = Output(Vec(c.NumReadRegsPerInstr, Bool()))
     val isaRegRead = Output(Vec(c.NumReadRegsPerInstr, UInt(c.BitNumIsaRegs.W)))
     val phyRegRead = Input(Vec(c.NumReadRegsPerInstr, UInt(c.BitNumPhyRegs.W)))
 
@@ -29,6 +29,12 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
       Input(Vec(c.NumWriteRegsPerInstr, UInt(c.BitNumPhyRegs.W)))
     val phyRegWrOld =
       Input(Vec(c.NumWriteRegsPerInstr, UInt(c.BitNumPhyRegs.W)))
+
+    val isJump = Output(Bool())
+    val jumpPc = Output(UInt(c.NumProgCounterBits.W))
+
+    val isBranch = Output(Bool())
+    val branchPc = Output(UInt(c.NumProgCounterBits.W))
   })
 
   val opcode = io.raw(6, 0)
@@ -39,6 +45,18 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
   val funct3 = io.raw(14, 12)
   val funct7 = io.raw(31, 25)
   val imm20 = io.raw(31, 12)
+
+  // It actually contains only 11 bits, because we always ignore
+  // the lowest bit as we do not support compressed instructions
+  // (C extension) now.
+  val imm12b = Cat(
+    io.raw(31),
+    io.raw(7),
+    io.raw(30, 25),
+    io.raw(11, 9)
+  )
+  val btarget = io.pc.asSInt() + imm12b.asSInt()
+  val nextpc = io.pc + 1.U
 
   require(c.NumReadRegsPerInstr == 2)
   require(c.NumWriteRegsPerInstr == 1)
@@ -54,8 +72,8 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
   val ren1 = Wire(Bool())
   val ren2 = Wire(Bool())
   val wen = Wire(Bool())
-  io.regReadEna(0) := ren1
-  io.regReadEna(1) := ren2
+  io.meta.ready(0) := !ren1
+  io.meta.ready(1) := !ren2
   io.regWriteEna(0) := wen
 
   val out = Wire(Instruction())
@@ -66,6 +84,12 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
   ren2 := false.B
   wen := false.B
   io.valid := false.B
+
+  io.isJump := false.B
+  io.jumpPc := DontCare
+  io.isBranch := false.B
+  io.branchPc := DontCare
+  io.meta.alu := DontCare
 
   @annotation.nowarn("msg=discarded non-Unit value")
   val _ = switch(opcode) {
@@ -85,11 +109,11 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
         funct3 === c.Funct3AddSub.U || funct3 === c.Funct3SrlSra.U
       ) {
         out.aluFunct := Cat(funct7(5), funct3).asBools()
-        io.valid := Cat(funct7(6), funct7(4, 0)) === 0.U
       }.otherwise {
         out.aluFunct := Cat(0.U(1.W), funct3).asBools()
-        io.valid := funct7 === 0.U
       }
+      io.valid := true.B
+      io.meta.alu := true.B
     }
     is(c.OpcodeAluImm.U) {
       ren1 := true.B
@@ -105,11 +129,11 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
       out.aluUseImm12 := true.B
       when(funct3 === c.Funct3SrlSra.U) {
         out.aluFunct := Cat(funct7(5), funct3).asBools()
-        io.valid := Cat(funct7(6), funct7(4, 0)) === 0.U
       }.otherwise {
         out.aluFunct := Cat(0.U(1.W), funct3).asBools()
-        io.valid := funct3 =/= c.Funct3Sll.U || funct7 === 0.U
       }
+      io.valid := true.B
+      io.meta.alu := true.B
     }
     is(c.OpcodeLui.U) {
       ren1 := false.B
@@ -122,6 +146,7 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       out.aluUseImm31 := true.B
       io.valid := true.B
+      io.meta.alu := true.B
     }
     is(c.OpcodeAuipc.U) {
       ren1 := false.B
@@ -137,6 +162,32 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       out.aluUseImm31 := true.B
       io.valid := true.B
+      io.meta.alu := true.B
+    }
+    is(c.OpcodeBranch.U) {
+      ren1 := true.B
+      ren2 := true.B
+      out.raddr1 := raddr1.asBools()
+      out.raddr2 := raddr2.asBools()
+
+      wen := false.B
+
+      // Simple static branch predictor:
+      // Backward branches will be taken and forward branches will not.
+      when(imm12b.asSInt() < 0.S) {
+        io.isJump := true.B
+        io.jumpPc := btarget.asUInt()
+        io.isBranch := true.B
+        io.branchPc := nextpc
+        out.funct3 := funct3.asBools()
+      }.otherwise {
+        io.isBranch := true.B
+        io.branchPc := btarget.asUInt()
+        out.funct3 := (funct3 ^ c.Funct3BxxNegator.U).asBools()
+      }
+
+      io.valid := true.B
+      io.meta.alu := false.B
     }
   }
 }

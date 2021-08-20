@@ -12,6 +12,7 @@ class Instruction(implicit c: ChipConfig) extends Bundle {
   def waddr = bits.slice(31, 37)
   def caddr = bits.slice(37, 43)
   def imm12 = bits.slice(12, 24)
+  def funct3 = bits.slice(25, 28)
 
   def aluImm31 = bits.slice(13, 31) ++ bits.slice(0, 13)
   def aluFunct = bits.slice(24, 28)

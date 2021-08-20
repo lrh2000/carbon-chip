@@ -30,6 +30,7 @@ class ChipConfig {
   val NumIssueInstrs = 2
   val NumCommitInstrs = 2
   val BitNumFetchInstrs = 1
+  val BitNumDecodeInstrs = 1
 
   val NumInstrBits = 32
   val NumProgCounterBits = 30
@@ -47,10 +48,19 @@ class ChipConfig {
   val OpcodeAuipc = "b0010111"
   val OpcodeAluImm = "b0010011"
   val OpcodeAluReg = "b0110011"
+  val OpcodeBranch = "b1100011"
 
   val Funct3AddSub = "b000"
   val Funct3SrlSra = "b101"
   val Funct3Sll = "b001"
+
+  val Funct3Beq = "b000"
+  val Funct3Bne = "b001"
+  val Funct3Blt = "b100"
+  val Funct3Bge = "b101"
+  val Funct3Bltu = "b110"
+  val Funct3Bgeu = "b111"
+  val Funct3BxxNegator = "b001"
 
   val BitNumAluFunct = 4
   val AluFunctAdd = "b0000"
@@ -63,6 +73,9 @@ class ChipConfig {
   val AluFunctSra = "b1101"
   val AluFunctOr = "b0110"
   val AluFunctAnd = "b0111"
+
+  val NumPendingBranches = 4
+  val BitNumPendingBranches = 2
 
   // Initial PC = 0x80000000
   val InitialFetchAddr = "h10000000"
