@@ -51,7 +51,7 @@ jobs:
       # Run all regression tests and check the results
       - name: run-tests
         run: |
-          sudo apt-get install -y qemu-user gcc-riscv64-unknown-elf
+          sudo apt-get install -y qemu-system-misc gcc-riscv64-unknown-elf
           make test
 
   # This workflow is just a empty workflow that tells `bors` whether CI succeeds

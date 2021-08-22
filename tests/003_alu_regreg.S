@@ -1,4 +1,4 @@
-.text
+.section ".foo"
 .global foo
 foo:
   li x1, 0x3080d6d2
