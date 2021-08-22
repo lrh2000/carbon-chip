@@ -1,4 +1,4 @@
-.text
+.section ".foo"
 .global foo
 foo:
   li x31, 0x805deee5
@@ -16,4 +16,5 @@ foo:
   ori x19, x30, 763
   slti x18, x31, 0
   sltiu x17, x31, 0
+  auipc x16, 777
 .long 0

@@ -63,4 +63,7 @@ class ChipConfig {
   val AluFunctSra = "b1101"
   val AluFunctOr = "b0110"
   val AluFunctAnd = "b0111"
+
+  // Initial PC = 0x80000000
+  val InitialFetchAddr = "h10000000"
 }

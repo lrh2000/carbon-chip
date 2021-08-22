@@ -15,7 +15,7 @@ class FetchUnit(implicit c: ChipConfig) extends Module {
   val instrMem = SyncReadMem(c.NumMemInstrsByFetch, UInt(c.NumFetchInstrBits.W))
   loadMemoryFromFile(instrMem, "/tmp/inst.dat")
 
-  val addr = RegNext(io.fetchAddrIn, 0.U(c.NumFetchAddrBits.W))
+  val addr = RegNext(io.fetchAddrIn, c.InitialFetchAddr.U(c.NumFetchAddrBits.W))
   io.fetchAddrOut := addr
 
   val instrs = Wire(UInt(c.NumFetchInstrBits.W))

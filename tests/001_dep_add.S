@@ -1,4 +1,4 @@
-.text
+.section ".foo"
 .global foo
 foo:
   add x1, x1, x0

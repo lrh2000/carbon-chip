@@ -25,13 +25,14 @@ TEST_OUT := $(OUT)/$(TEST_DIR)
 TEST_ASMS := $(wildcard $(TEST_DIR)/*.S)
 TEST_DIFFS := $(TEST_ASMS:%.S=$(OUT)/%.diff)
 TEST_STDOBJ := $(TEST_OUT)/std-main.o $(TEST_OUT)/std-start.o
+TEST_LDS := $(TEST_DIR)/std/link.lds
 
 CROSS   ?= riscv64-unknown-elf-
 CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
-CFLAGS  := -mabi=ilp32 -march=rv32i -Wall -Werror -O3 -nostdlib -nostartfiles
+CFLAGS  := -mabi=ilp32 -march=rv32i -Wall -Werror -O3 -nostdlib
 LDFLAGS := -Wl,-lgcc -Wl,--no-relax
-QEMU    := qemu-riscv32
+QEMU    := qemu-system-riscv32
 
 .PHONY:
 test: $(TEST_DIFFS)
@@ -49,16 +50,16 @@ $(TEST_OUT)/std-%.o: $(TEST_DIR)/std/%.S | $(TEST_OUT)
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(TEST_OUT)/%.bin: $(TEST_OUT)/%.o
-	$(OBJCOPY) -O binary -j .text $< $@
+	$(OBJCOPY) --dump-section .foo=$@ $<
 
 $(TEST_OUT)/%.dat: $(TEST_OUT)/%.bin
 	xxd -e -g 8 -c 8 $< | awk '{ print $$2 }' > $@
 
-$(TEST_OUT)/%: $(TEST_OUT)/%.o $(TEST_STDOBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+$(TEST_OUT)/%: $(TEST_OUT)/%.o $(TEST_STDOBJ) $(TEST_LDS)
+	$(CC) $(CFLAGS) -o $@ $< $(TEST_STDOBJ) -Wl,-T$(TEST_LDS) $(LDFLAGS)
 
 $(TEST_OUT)/%.ans: $(TEST_OUT)/%
-	$(QEMU) $< > $@
+	$(QEMU) -machine virt -nographic -device loader,file=$<,cpu-num=0 > $@
 
 $(TEST_OUT)/%.out2: $(TEST_OUT)/%.dat $(SIM_TARGET)
 	cp $< /tmp/inst.dat
