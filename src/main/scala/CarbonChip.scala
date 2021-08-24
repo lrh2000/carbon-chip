@@ -33,6 +33,13 @@ class CarbonChip(implicit c: ChipConfig) extends Module {
   decode.io.phyRegCommit := reorder.io.commitRegs
   decode.io.regReadyFlag := reorder.io.regReadyValid
   decode.io.regReadyAddr := reorder.io.regReadyAddr
+  decode.io.setPcFlag := alu0.io.setPcFlag || alu1.io.setPcFlag
+  assert(!alu0.io.setPcFlag || !alu1.io.setPcFlag)
+  decode.io.setPcData := Mux(
+    alu0.io.setPcFlag,
+    alu0.io.setPcData,
+    alu1.io.setPcData
+  )
   decode.io.branchSucc := bru.io.branchSucc
   decode.io.branchFail := bru.io.branchFail
 

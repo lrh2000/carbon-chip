@@ -119,6 +119,7 @@ class RegisterUnit(implicit c: ChipConfig) extends Module {
       ).asSInt()
       aluInstrs(i).inRegData2 := 0.S
       aluInstrs(i).funct := c.AluFunctAdd.U
+      aluInstrs(i).setPc := false.B
     }.otherwise {
       regFwdEna1(i) := true.B
       aluInstrs(i).inRegData1 := DontCare
@@ -130,6 +131,7 @@ class RegisterUnit(implicit c: ChipConfig) extends Module {
         aluInstrs(i).inRegData2 := DontCare
       }
       aluInstrs(i).funct := io.inInstrs(i).aluFunct.asUInt()
+      aluInstrs(i).setPc := io.inInstrs(i).aluSetPc
     }
     aluInstrs(i).outRegAddr := io.inInstrs(i).waddr.asUInt()
   }

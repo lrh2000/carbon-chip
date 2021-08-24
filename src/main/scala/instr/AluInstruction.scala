@@ -8,6 +8,7 @@ class AluInstruction(implicit c: ChipConfig) extends Bundle {
   val inRegData2 = SInt(c.BitNumRegData.W)
   val outRegAddr = UInt(c.BitNumRegData.W)
   val funct = UInt(c.BitNumAluFunct.W)
+  val setPc = Bool()
 }
 
 object AluInstruction {

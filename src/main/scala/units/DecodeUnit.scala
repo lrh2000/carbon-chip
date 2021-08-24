@@ -27,6 +27,9 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
     val regReadyFlag = Input(Vec(c.NumReadyRegs, Bool()))
     val regReadyAddr = Input(Vec(c.NumReadyRegs, UInt(c.BitNumPhyRegs.W)))
 
+    val setPcFlag = Input(Bool())
+    val setPcData = Input(UInt(c.NumProgCounterBits.W))
+
     val branchSucc = Input(Bool())
     val branchFail = Input(Bool())
 
@@ -92,13 +95,37 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
 
   require(c.NumDecodeInstrs == 2 && c.NumFetchInstrs == 2)
 
+  val jalrWritePc = RegInit(false.B)
+  val jalrWaitPc = RegInit(false.B)
+  for (i <- 0 until c.NumDecodeInstrs) {
+    decoders(i).io.jalrWritePc := jalrWritePc
+  }
+
+  val fetchValid = Wire(Bool())
+  fetchValid := io.fetchValid && !jalrWaitPc
+
   val ready = Wire(Bool())
   ready := !valid(0) || (!valid(1) && io.decodeReady(0)) || io.decodeReady(1)
-  io.halt := io.fetchValid &&
+  io.halt := fetchValid &&
     Mux(fetchOffset === 0.U, !decoders(0).io.valid, !decoders(1).io.valid)
 
   val branchOk = Wire(Bool())
   branchOk := !branchFlag(branchHead)
+
+  when(
+    ready && fetchValid && (
+      (decoders(1).io.isJumpReg && (fetchOffset === 1.U ||
+        (decoders(0).io.valid && !decoders(0).io.isJump &&
+          (!decoders(0).io.isBranch || branchOk)))) ||
+        (decoders(0).io.isJumpReg && fetchOffset === 0.U)
+    )
+  ) {
+    jalrWritePc := true.B
+  }
+
+  when(ready) {
+    jalrWaitPc := jalrWritePc
+  }
 
   def set(to: Integer, from: Integer) {
     validNext(to) := true.B
@@ -116,12 +143,16 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
     fetchOffsetNext := target(c.BitNumFetchInstrs - 1, 0)
   }
 
-  when(io.branchFail) {
+  when(io.branchFail || io.setPcFlag) {
     clear(0)
     clear(1)
-    jump(branchDest(branchTail))
+    when(io.setPcFlag) {
+      jump(io.setPcData)
+    }.otherwise {
+      jump(branchDest(branchTail))
+    }
   }.elsewhen(ready) {
-    when(!io.fetchValid) {
+    when(!fetchValid) {
       clear(0)
       clear(1)
       fetchBaseNext := fetchBase
@@ -201,7 +232,7 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
     )
   }
   when(
-    ready && branchOk && io.fetchValid && (
+    ready && branchOk && fetchValid && (
       (decoders(1).io.isBranch && (fetchOffset === 1.U ||
         (decoders(0).io.valid && !decoders(0).io.isJump))) ||
         (decoders(0).io.isBranch && fetchOffset === 0.U)
@@ -209,6 +240,11 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
   ) {
     branchHead := branchHead + 1.U
     branchFlag(branchHead) := true.B
+  }
+
+  when(io.branchFail || io.setPcFlag) {
+    jalrWritePc := false.B
+    jalrWaitPc := false.B
   }
 
   when(io.branchFail) {
@@ -246,7 +282,7 @@ class DecodeUnit(implicit c: ChipConfig) extends Module {
         mapTable.io.phyRegWrOld(i * c.NumWriteRegsPerInstr + j)
     }
   }
-  mapTable.io.regWriteUpd := ready && io.fetchValid
+  mapTable.io.regWriteUpd := ready && fetchValid
 
   readyTable.io.phyRegFree := mapTable.io.phyRegFree
 }

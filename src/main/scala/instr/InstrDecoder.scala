@@ -31,7 +31,10 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
       Input(Vec(c.NumWriteRegsPerInstr, UInt(c.BitNumPhyRegs.W)))
 
     val isJump = Output(Bool())
+    val isJumpReg = Output(Bool())
     val jumpPc = Output(UInt(c.NumProgCounterBits.W))
+
+    val jalrWritePc = Input(Bool())
 
     val isBranch = Output(Bool())
     val branchPc = Output(UInt(c.NumProgCounterBits.W))
@@ -86,6 +89,7 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
   io.valid := false.B
 
   io.isJump := false.B
+  io.isJumpReg := false.B
   io.jumpPc := DontCare
   io.isBranch := false.B
   io.branchPc := DontCare
@@ -105,6 +109,7 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       out.aluUseImm31 := false.B
       out.aluUseImm12 := false.B
+      out.aluSetPc := false.B
       when(
         funct3 === c.Funct3AddSub.U || funct3 === c.Funct3SrlSra.U
       ) {
@@ -127,6 +132,7 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       out.aluUseImm31 := false.B
       out.aluUseImm12 := true.B
+      out.aluSetPc := false.B
       when(funct3 === c.Funct3SrlSra.U) {
         out.aluFunct := Cat(funct7(5), funct3).asBools()
       }.otherwise {
@@ -188,6 +194,36 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       io.valid := true.B
       io.meta.alu := false.B
+    }
+    is(c.OpcodeJalr.U) {
+      io.isJump := true.B
+      io.isJumpReg := true.B
+      io.jumpPc := io.pc
+
+      ren2 := false.B
+      when(io.jalrWritePc) {
+        ren1 := false.B
+        wen := true.B
+        out.waddr := waddr.asBools()
+
+        out.aluUseImm31 := true.B
+        out.aluImm31 := Cat(
+          nextpc,
+          0.U((31 - c.NumProgCounterBits).W)
+        ).asBools()
+      }.otherwise {
+        ren1 := true.B
+        wen := false.B
+        out.raddr1 := raddr1.asBools()
+
+        out.aluUseImm31 := false.B
+        out.aluUseImm12 := true.B
+        out.aluSetPc := true.B
+        out.imm12 := imm12.asBools()
+      }
+
+      io.valid := true.B
+      io.meta.alu := true.B
     }
   }
 }
