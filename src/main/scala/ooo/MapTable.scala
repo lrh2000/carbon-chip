@@ -20,6 +20,13 @@ class MapTable(implicit c: ChipConfig) extends Module {
 
     val regCommitEna = Input(Vec(c.NumCommitRegs, Bool()))
     val phyRegCommit = Input(Vec(c.NumCommitRegs, UInt(c.BitNumPhyRegs.W)))
+
+    val backupValid = Input(Bool())
+    val backupIndex = Input(UInt(c.BitNumPendingBranches.W))
+    val backupInstr = Input(UInt(c.BitNumDecodeInstrs.W))
+
+    val restoreValid = Input(Bool())
+    val restoreIndex = Input(UInt(c.BitNumPendingBranches.W))
   })
 
   val mapping = RegInit(
@@ -106,6 +113,7 @@ class MapTable(implicit c: ChipConfig) extends Module {
 
   io.phyRegFree(0) := freeReg0.asUInt()
   io.phyRegFree(1) := freeReg1.asUInt()
+  assert(io.phyRegFree(0) < io.phyRegFree(1))
 
   when(io.regWriteUpd && io.regWriteEna(0)) {
     mapping(io.isaRegWrite(0)) := freeReg0.asUInt()
@@ -122,28 +130,54 @@ class MapTable(implicit c: ChipConfig) extends Module {
     }
   }
 
-  for (i <- 0 until c.NumPhyRegs) {
+  for (i <- 0 until c.NumWriteIsaRegs) {
     when(
-      io.regWriteUpd && io.regWriteEna(0)
-        && io.isaRegWrite(0) =/= c.IsaRegZeroAddr.U
-        && (if (i - 1 < 0) true.B
-            else ~freeRegsOut.asUInt()(i - 1, 0).orR())
+      io.regWriteUpd && io.regWriteEna(i) &&
+        io.isaRegWrite(i) =/= c.IsaRegZeroAddr.U
     ) {
-      freeRegs(i) := false.B
+      freeRegs(io.phyRegFree(i)) := false.B
     }
-    when(
-      io.regWriteUpd && io.regWriteEna(1)
-        && io.isaRegWrite(1) =/= c.IsaRegZeroAddr.U
-        && (if (c.NumPhyRegs - 1 < i + 1) true.B
-            else ~freeRegsOut.asUInt()(c.NumPhyRegs - 1, i + 1).orR())
-    ) {
-      freeRegs(i) := false.B
-    }
+  }
 
-    for (j <- 0 until c.NumCommitRegs) {
-      when(io.regCommitEna(j) && io.phyRegCommit(j) === i.U) {
-        freeRegs(i) := true.B
+  val mappingBackup = Reg(
+    Vec(
+      c.NumPendingBranches,
+      Vec(c.NumIsaRegs, UInt(c.BitNumPhyRegs.W))
+    )
+  )
+  val freeRegsBackup = Reg(
+    Vec(
+      c.NumPendingBranches,
+      Vec(c.NumPhyRegs, Bool())
+    )
+  )
+
+  when(io.backupValid) {
+    mappingBackup(io.backupIndex) := mappingOut
+    freeRegsBackup(io.backupIndex) := freeRegsOut
+    for (i <- 0 until c.NumWriteIsaRegs) {
+      when(
+        io.regWriteEna(i) &&
+          io.backupInstr > (i / c.NumWriteRegsPerInstr).U
+      ) {
+        mappingBackup(io.backupIndex)(io.isaRegWrite(i)) := io.phyRegFree(i)
+        when(io.isaRegWrite(i) =/= c.IsaRegZeroAddr.U) {
+          freeRegsBackup(io.backupIndex)(io.phyRegFree(i)) := false.B
+        }
       }
+    }
+  }
+
+  when(io.restoreValid) {
+    mapping := mappingBackup(io.restoreIndex)
+    for (i <- 0 until c.NumPhyRegs) {
+      freeRegs(i) := freeRegsOut(i) || freeRegsBackup(io.restoreIndex)(i)
+    }
+  }
+
+  for (i <- 0 until c.NumCommitRegs) {
+    when(io.regCommitEna(i)) {
+      freeRegs(io.phyRegCommit(i)) := true.B
     }
   }
 }

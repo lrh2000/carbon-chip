@@ -13,10 +13,16 @@ class ArithmeticLogicUnit(implicit c: ChipConfig) extends Module {
     val outRegData = Output(UInt(c.BitNumRegData.W))
     val outRegAddr = Output(UInt(c.BitNumPhyRegs.W))
     val outValid = Output(Bool())
+
+    val setPcFlag = Output(Bool())
+    val setPcData = Output(UInt(c.NumProgCounterBits.W))
   })
 
-  val valid = RegNext(io.valid, false.B)
+  val valid = RegNext(io.valid && !io.instr.setPc, false.B)
   io.outValid := valid
+
+  val setPc = RegNext(io.valid && io.instr.setPc, false.B)
+  io.setPcFlag := setPc
 
   val regAddr = RegNext(io.instr.outRegAddr)
   io.outRegAddr := regAddr
@@ -37,6 +43,10 @@ class ArithmeticLogicUnit(implicit c: ChipConfig) extends Module {
 
   val result = Reg(UInt(c.BitNumRegData.W))
   io.outRegData := result
+  io.setPcData := result(
+    c.BitNumRegData - 1,
+    c.BitNumRegData - c.NumProgCounterBits
+  )
 
   result := DontCare
   @annotation.nowarn("msg=discarded non-Unit value")

@@ -12,11 +12,13 @@ class Instruction(implicit c: ChipConfig) extends Bundle {
   def waddr = bits.slice(31, 37)
   def caddr = bits.slice(37, 43)
   def imm12 = bits.slice(12, 24)
+  def funct3 = bits.slice(25, 28)
 
   def aluImm31 = bits.slice(13, 31) ++ bits.slice(0, 13)
   def aluFunct = bits.slice(24, 28)
   def aluUseImm31 = bits(43)
   def aluUseImm12 = bits(29)
+  def aluSetPc = bits(30)
 
   def raddr(i: Integer): Seq[Bits] = {
     require(i == 0 || i == 1)
