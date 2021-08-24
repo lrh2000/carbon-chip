@@ -49,6 +49,7 @@ class ChipConfig {
   val OpcodeAluImm = "b0010011"
   val OpcodeAluReg = "b0110011"
   val OpcodeBranch = "b1100011"
+  val OpcodeJal = "b1101111"
   val OpcodeJalr = "b1100111"
 
   val Funct3AddSub = "b000"

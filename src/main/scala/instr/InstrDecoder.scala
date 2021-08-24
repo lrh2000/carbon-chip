@@ -59,6 +59,16 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
     io.raw(11, 9)
   )
   val btarget = io.pc.asSInt() + imm12b.asSInt()
+
+  // It contains only 19 bits. The reason is the same as above.
+  val imm20j = Cat(
+    io.raw(31),
+    io.raw(19, 12),
+    io.raw(20),
+    io.raw(30, 22)
+  )
+  val jtarget = io.pc.asSInt() + imm20j.asSInt()
+
   val nextpc = io.pc + 1.U
 
   require(c.NumReadRegsPerInstr == 2)
@@ -194,6 +204,25 @@ class InstrDecoder(implicit c: ChipConfig) extends Module {
 
       io.valid := true.B
       io.meta.alu := false.B
+    }
+    is(c.OpcodeJal.U) {
+      ren1 := false.B
+      ren2 := false.B
+      out.aluImm31 := Cat(
+        nextpc,
+        0.U((31 - c.NumProgCounterBits).W)
+      ).asBools()
+
+      wen := true.B
+      out.waddr := waddr.asBools()
+      out.caddr := caddr.asBools()
+
+      io.isJump := true.B
+      io.jumpPc := jtarget.asUInt()
+
+      out.aluUseImm31 := true.B
+      io.valid := true.B
+      io.meta.alu := true.B
     }
     is(c.OpcodeJalr.U) {
       io.isJump := true.B
